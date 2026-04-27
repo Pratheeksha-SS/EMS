@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holiday Wish | ELOGIXA</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            color: white;
+            margin: 0;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        .header p {
+            color: rgba(255,255,255,0.9);
+            margin: 8px 0 0;
+            font-size: 14px;
+        }
+        .content {
+            padding: 40px 30px;
+            background: #ffffff;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 25px;
+        }
+        .employee-name {
+            color: #667eea;
+            font-weight: 600;
+        }
+        .holiday-message {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 25px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .holiday-message .emoji {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        .holiday-message h2 {
+            color: #667eea;
+            margin: 0 0 15px;
+            font-size: 24px;
+        }
+        .holiday-message p {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: #555;
+        }
+        .holiday-message p:last-child {
+            margin-bottom: 0;
+        }
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #e0e0e0;
+        }
+        .signature {
+            margin-top: 25px;
+            text-align: left;
+        }
+        .signature p {
+            margin: 5px 0;
+        }
+        .signature .team {
+            font-weight: 600;
+            color: #333;
+        }
+        .note {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>E L O G I X A</h1>
+            <p>HRMS Portal</p>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Dear <span class="employee-name">{{ employee_name }}</span>,
+            </div>
+            
+            <div class="holiday-message">
+                <div class="emoji">{{ emoji }}</div>  <!-- ✅ CHANGED: Dynamic emoji -->
+                <h2>Happy {{ holiday_name }}!</h2>
+                <p>May this day fill your heart with pride and joy.</p>
+                <p>Take this time to rest, recharge, and celebrate.</p>
+                <p><strong>Wishing you a wonderful day ahead!</strong></p>
+            </div>
+            
+            <div class="signature">
+                <p class="team">Best regards,</p>
+                <p class="team">HRMS Team</p>
+                <p>ELOGIXA</p>
+            </div>
+            
+            <div class="note">
+                ⚡ This is an automated notification from ELOGIXA HRMS.<br>
+                Please do not reply to this email.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2026 ELOGIXA. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

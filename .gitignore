@@ -1,0 +1,49 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database
+*.sqlite3
+*.db
+*.sqlite3-journal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Django
+staticfiles/
+media/
+local_settings.py
+
+# Frontend
+node_modules/
+frontend/node_modules/
+dist/
+build/
+
+# Backend specific
+backend/hrms_backend/venv/
+backend/hrms_backend/__pycache__/
+hrms_backend/__pycache__/
+hrms/__pycache__/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
