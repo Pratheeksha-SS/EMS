@@ -1,238 +1,121 @@
 import React from 'react';
-import { Users, Calendar, CheckCircle, Clock, TrendingUp, XCircle, Award, Briefcase } from 'lucide-react';
 
-const ReportSummaryCards = ({ summary, reportType, loading }) => {
+/* ─── ReportSummaryCard ─────────────────────────────────────────────
+   Reusable stat card matching the HRMS design language.
+   Props:
+     label      : string
+     value      : string | number
+     sub        : string (optional secondary line)
+     icon       : string (emoji or char)
+     gradient   : CSS gradient string
+     shadow     : rgba shadow color string
+     trend      : { value: string, up: bool } optional
+     onClick    : function (optional)
+   ──────────────────────────────────────────────────────────────────── */
+
+const ReportSummaryCard = ({
+  label,
+  value,
+  sub,
+  icon = '📊',
+  gradient = 'linear-gradient(135deg, #F97316, #EA580C)',
+  shadow = 'rgba(249,115,22,0.25)',
+  trend,
+  onClick,
+  loading = false,
+}) => {
   if (loading) {
     return (
-      <div style={styles.container}>
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} style={styles.skeletonCard}>
-            <div style={styles.skeletonIcon} />
-            <div style={styles.skeletonContent}>
-              <div style={styles.skeletonValue} />
-              <div style={styles.skeletonLabel} />
-            </div>
-          </div>
-        ))}
-      </div>
+      <div style={{
+        background: '#F1F5F9',
+        padding: '22px 24px',
+        borderRadius: '16px',
+        height: '130px',
+        animation: 'summaryPulse 1.5s ease-in-out infinite',
+      }} />
     );
   }
 
-  if (!summary || Object.keys(summary).length === 0) {
-    return null;
-  }
-
-  const getCards = () => {
-    switch(reportType) {
-      case 'attendance':
-        return [
-          { 
-            label: 'Total Employees', 
-            value: summary.total_employees || 0, 
-            icon: <Users size={22} />, 
-            color: '#F97316', 
-            bg: '#FFF7ED',
-            trend: summary.employee_trend
-          },
-          { 
-            label: 'Present Days', 
-            value: summary.present || 0, 
-            icon: <CheckCircle size={22} />, 
-            color: '#10B981', 
-            bg: '#ECFDF5',
-            trend: summary.present_trend
-          },
-          { 
-            label: 'Absent Days', 
-            value: summary.absent || 0, 
-            icon: <XCircle size={22} />, 
-            color: '#EF4444', 
-            bg: '#FEF2F2',
-            trend: summary.absent_trend
-          },
-          { 
-            label: 'Attendance %', 
-            value: `${summary.attendance_percentage || 0}%`, 
-            icon: <TrendingUp size={22} />, 
-            color: '#8B5CF6', 
-            bg: '#F3E8FF',
-            trend: summary.percentage_trend
-          },
-        ];
-      case 'leave':
-        return [
-          { 
-            label: 'Total Leaves', 
-            value: summary.total_requests || 0, 
-            icon: <Calendar size={22} />, 
-            color: '#F97316', 
-            bg: '#FFF7ED' 
-          },
-          { 
-            label: 'Approved', 
-            value: summary.approved || 0, 
-            icon: <CheckCircle size={22} />, 
-            color: '#10B981', 
-            bg: '#ECFDF5' 
-          },
-          { 
-            label: 'Pending', 
-            value: summary.pending || 0, 
-            icon: <Clock size={22} />, 
-            color: '#F59E0B', 
-            bg: '#FEF3C7' 
-          },
-          { 
-            label: 'Rejected', 
-            value: summary.rejected || 0, 
-            icon: <XCircle size={22} />, 
-            color: '#EF4444', 
-            bg: '#FEF2F2' 
-          },
-        ];
-      case 'employee':
-        return [
-          { 
-            label: 'Total Employees', 
-            value: summary.total_employees || 0, 
-            icon: <Users size={22} />, 
-            color: '#F97316', 
-            bg: '#FFF7ED' 
-          },
-          { 
-            label: 'Avg Attendance', 
-            value: `${summary.avg_attendance || 0}%`, 
-            icon: <TrendingUp size={22} />, 
-            color: '#10B981', 
-            bg: '#ECFDF5' 
-          },
-          { 
-            label: 'Total Leaves', 
-            value: summary.total_leaves || 0, 
-            icon: <Calendar size={22} />, 
-            color: '#F59E0B', 
-            bg: '#FEF3C7' 
-          },
-          { 
-            label: 'Departments', 
-            value: summary.total_departments || 0, 
-            icon: <Briefcase size={22} />, 
-            color: '#8B5CF6', 
-            bg: '#F3E8FF' 
-          },
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const cards = getCards();
-
   return (
-    <div style={styles.container}>
-      {cards.map((card, idx) => (
-        <div key={idx} style={styles.card}>
-          <div style={{ ...styles.icon, background: card.bg, color: card.color }}>
-            {card.icon}
-          </div>
-          <div style={styles.content}>
-            <div style={styles.value}>{card.value}</div>
-            <div style={styles.label}>{card.label}</div>
-            {card.trend && (
-              <div style={{ ...styles.trend, color: card.trend > 0 ? '#10B981' : '#EF4444' }}>
-                {card.trend > 0 ? '↑' : '↓'} {Math.abs(card.trend)}%
-              </div>
-            )}
-          </div>
+    <div
+      onClick={onClick}
+      style={{
+        background: gradient,
+        padding: '22px 24px',
+        borderRadius: '16px',
+        color: 'white',
+        boxShadow: `0 6px 20px ${shadow}`,
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'transform 0.2s, box-shadow 0.2s',
+        cursor: onClick ? 'pointer' : 'default',
+        userSelect: 'none',
+      }}
+      onMouseEnter={e => {
+        if (onClick) {
+          e.currentTarget.style.transform = 'translateY(-3px)';
+          e.currentTarget.style.boxShadow = `0 12px 28px ${shadow}`;
+        }
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = `0 6px 20px ${shadow}`;
+      }}
+    >
+      {/* Decorative circles */}
+      <div style={{
+        position: 'absolute', top: '-18px', right: '-18px',
+        width: '80px', height: '80px', borderRadius: '50%',
+        backgroundColor: 'rgba(255,255,255,0.13)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '-28px', left: '-8px',
+        width: '65px', height: '65px', borderRadius: '50%',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Icon */}
+      <div style={{ fontSize: '26px', marginBottom: '10px', lineHeight: 1 }}>{icon}</div>
+
+      {/* Label */}
+      <div style={{
+        fontSize: '11px', fontWeight: '700', opacity: 0.85,
+        textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px',
+      }}>
+        {label}
+      </div>
+
+      {/* Value */}
+      <div style={{
+        fontSize: '34px', fontWeight: '800', lineHeight: 1, marginBottom: '5px',
+        letterSpacing: '-0.5px',
+      }}>
+        {value ?? '—'}
+      </div>
+
+      {/* Sub text */}
+      {sub && (
+        <div style={{ fontSize: '12px', opacity: 0.78, fontWeight: '500' }}>{sub}</div>
+      )}
+
+      {/* Trend badge */}
+      {trend && (
+        <div style={{
+          position: 'absolute', bottom: '14px', right: '14px',
+          fontSize: '10px', fontWeight: '700', textTransform: 'uppercase',
+          letterSpacing: '0.4px',
+          backgroundColor: 'rgba(255,255,255,0.22)',
+          padding: '3px 8px', borderRadius: '10px',
+          display: 'flex', alignItems: 'center', gap: '3px',
+        }}>
+          <span>{trend.up ? '↑' : '↓'}</span>
+          {trend.value}
         </div>
-      ))}
+      )}
     </div>
   );
 };
 
-const styles = {
-  container: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
-    marginBottom: '24px',
-  },
-  card: {
-    background: 'white',
-    borderRadius: '16px',
-    padding: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    border: '1px solid #e5e7eb',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-    },
-  },
-  icon: {
-    width: '52px',
-    height: '52px',
-    borderRadius: '14px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  value: {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#1f2937',
-    lineHeight: 1.2,
-  },
-  label: {
-    fontSize: '12px',
-    color: '#6b7280',
-    marginTop: '4px',
-    fontWeight: '500',
-  },
-  trend: {
-    fontSize: '10px',
-    marginTop: '4px',
-    fontWeight: '600',
-  },
-  skeletonCard: {
-    background: 'white',
-    borderRadius: '16px',
-    padding: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    border: '1px solid #e5e7eb',
-  },
-  skeletonIcon: {
-    width: '52px',
-    height: '52px',
-    borderRadius: '14px',
-    background: '#f3f4f6',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  },
-  skeletonContent: {
-    flex: 1,
-  },
-  skeletonValue: {
-    height: '28px',
-    width: '60px',
-    background: '#f3f4f6',
-    borderRadius: '6px',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  },
-  skeletonLabel: {
-    height: '12px',
-    width: '80px',
-    background: '#f3f4f6',
-    borderRadius: '4px',
-    marginTop: '8px',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  },
-};
-
-export default ReportSummaryCards;
+export default ReportSummaryCard;

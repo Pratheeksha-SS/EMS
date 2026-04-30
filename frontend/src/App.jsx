@@ -9,6 +9,7 @@ axios.defaults.baseURL = "http://localhost:8000/api";
 
 // Lazy load components
 const Login = lazy(() => import('./components/Login'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -30,6 +31,18 @@ const InternManagement = lazy(() => import('./pages/visitor/InternManagement'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
 const LeaveDetails = lazy(() => import('./pages/LeaveDetails'));
 
+const DashboardGateway = () => {
+  const token = localStorage.getItem('access_token');
+  const userRole = localStorage.getItem('user_role');
+
+  if (!token) return <Navigate to="/login" replace />;
+  if (userRole === 'ADMIN') return <Navigate to="/admin" replace />;
+  if (userRole === 'MANAGER') return <Navigate to="/employee" replace />;
+  if (userRole === 'EMPLOYEE') return <Navigate to="/employee" replace />;
+
+  return <Navigate to="/login" replace />;
+};
+
 // ✅ Protected Route — supports multiple allowed roles
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const token    = localStorage.getItem('access_token');
@@ -44,14 +57,14 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     }
   }, [token]);
 
-  if (!token) return <Navigate to="/" replace />;
+  if (!token) return <Navigate to="/login" replace />;
 
   if (allowedRoles && !allowedRoles.includes(userRole)) {
     // Redirect to the correct dashboard
     if (userRole === 'ADMIN')    return <Navigate to="/admin"    replace />;
     if (userRole === 'MANAGER')  return <Navigate to="/employee" replace />;
     if (userRole === 'EMPLOYEE') return <Navigate to="/employee" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;
@@ -77,7 +90,9 @@ function App() {
           <Suspense fallback={<div style={{padding: '50px', textAlign: 'center', color: '#666'}}>Loading application...</div>}>
             <Routes>
               {/* Public */}
-              <Route path="/" element={<Login setUser={setUser} />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login setUser={setUser} />} />
+              <Route path="/dashboard" element={<DashboardGateway />} />
               <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
 
               {/* ─── Admin Routes ─── */}

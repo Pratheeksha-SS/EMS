@@ -102,6 +102,7 @@ DATABASES = {
             'ep-wandering-truth-aiq1gffm-pooler.c-4.us-east-1.aws.neon.tech'
         ),
         'PORT': '5432',
+        'CONN_MAX_AGE': 60,  # Keep connections alive for 60 seconds (Neon pooling)
         'OPTIONS': {
             'sslmode': 'require',
         },

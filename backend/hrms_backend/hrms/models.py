@@ -13,7 +13,7 @@ class User(AbstractUser):
         ('EMPLOYEE', 'Employee'),
     )
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, db_index=True)
     must_change_password = models.BooleanField(default=False)
     has_set_password = models.BooleanField(default=False)
     
@@ -88,9 +88,9 @@ class Employee(models.Model):
     )
 
     # Name fields
-    first_name = models.CharField(max_length=50, default='')
+    first_name = models.CharField(max_length=50, default='', db_index=True)
     middle_name = models.CharField(max_length=50, blank=True, null=True)
-    last_name = models.CharField(max_length=50, default='')
+    last_name = models.CharField(max_length=50, default='', db_index=True)
 
     # Personal Info
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='MALE')
@@ -99,7 +99,7 @@ class Employee(models.Model):
 
     # Contact
     phone = models.CharField(max_length=15, default='')
-    email = models.EmailField(max_length=100, default='')
+    email = models.EmailField(max_length=100, default='', db_index=True)
     address = models.TextField(default='')
 
     # Employment
@@ -112,7 +112,7 @@ class Employee(models.Model):
 
     department = models.CharField(max_length=100, default='', db_index=True)
 
-    designation = models.CharField(max_length=100, default='')
+    designation = models.CharField(max_length=100, default='', db_index=True)
 
     joining_date = models.DateField(null=True, blank=True, db_index=True)
 
@@ -236,7 +236,7 @@ class LeaveBalance(models.Model):
     total_allocated = models.DecimalField(max_digits=6, decimal_places=1, default=0)
     total_used = models.DecimalField(max_digits=6, decimal_places=1, default=0)
     remaining = models.DecimalField(max_digits=6, decimal_places=1, default=0)
-    year = models.IntegerField()
+    year = models.IntegerField(db_index=True)
     is_carry_forward = models.BooleanField(default=False)
     carry_forward_days = models.DecimalField(max_digits=6, decimal_places=1, default=0)
     
@@ -269,11 +269,11 @@ class Salary(models.Model):
     leave_deduction = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
     # Month and Year
-    month = models.IntegerField()  # 1-12
-    year = models.IntegerField()
+    month = models.IntegerField(db_index=True)  # 1-12
+    year = models.IntegerField(db_index=True)
     
     # Payment Status
-    status = models.CharField(max_length=20, choices=[('PENDING', 'Pending'), ('PAID', 'Paid')], default='PENDING')
+    status = models.CharField(max_length=20, choices=[('PENDING', 'Pending'), ('PAID', 'Paid')], default='PENDING', db_index=True)
     payment_date = models.DateField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -318,9 +318,9 @@ class Leave(models.Model):
         db_index=True
     )
 
-    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES, db_index=True)
+    start_date = models.DateField(db_index=True)
+    end_date = models.DateField(db_index=True)
     reason = models.TextField()
 
     status = models.CharField(
@@ -397,9 +397,9 @@ class Holiday(models.Model):
     name = models.CharField(max_length=200, help_text='Name of the holiday (e.g., Republic Day)')
     date = models.DateField(help_text='Date of the holiday')
     holiday_type = models.CharField(max_length=20, choices=HOLIDAY_TYPES, default='GOVT', help_text='Type of holiday')
-    year = models.IntegerField(help_text='Year for easy filtering')
+    year = models.IntegerField(help_text='Year for easy filtering', db_index=True)
     description = models.TextField(blank=True, null=True, help_text='Additional details about the holiday')
-    is_active = models.BooleanField(default=True, help_text='Whether this holiday is active')
+    is_active = models.BooleanField(default=True, help_text='Whether this holiday is active', db_index=True)
     is_auto_generated = models.BooleanField(default=False, help_text='True if created by system automatically')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -491,7 +491,7 @@ class Announcement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     event_date = models.DateField(blank=True, null=True)
     expiry_date = models.DateField(blank=True, null=True)
-    is_pinned = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False, db_index=True)
     send_email = models.BooleanField(default=False)
     attachment = models.FileField(blank=True, null=True, upload_to='announcement_files/')
     created_by = models.ForeignKey(
@@ -546,10 +546,10 @@ class Visitor(models.Model):
     
     # Basic Information
     visitor_id = models.CharField(max_length=20, unique=True, blank=True, editable=False)
-    visitor_type = models.CharField(max_length=20, choices=VISITOR_TYPES, default='GUEST')
+    visitor_type = models.CharField(max_length=20, choices=VISITOR_TYPES, default='GUEST', db_index=True)
     
     # Personal Details
-    full_name = models.CharField(max_length=200)
+    full_name = models.CharField(max_length=200, db_index=True)
     phone_number = models.CharField(
         max_length=15,
         validators=[
@@ -745,17 +745,17 @@ class GuestVisit(models.Model):
     
     host = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='hosted_visits')
     host_name = models.CharField(max_length=200, blank=True, null=True)
-    department = models.CharField(max_length=100, blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     
     meeting_subject = models.CharField(max_length=500, blank=True, null=True)
     meeting_room = models.CharField(max_length=100, blank=True, null=True)
     
-    expected_check_in = models.DateTimeField()
+    expected_check_in = models.DateTimeField(db_index=True)
     check_in_time = models.DateTimeField(blank=True, null=True)
     check_out_time = models.DateTimeField(blank=True, null=True)
     
     entry_gate = models.CharField(max_length=20, choices=ENTRY_GATES, default='MAIN')
-    status = models.CharField(max_length=20, choices=VISIT_STATUS, default='EXPECTED')
+    status = models.CharField(max_length=20, choices=VISIT_STATUS, default='EXPECTED', db_index=True)
     
     badge_number = models.CharField(max_length=50, blank=True, null=True)
     vehicle_number = models.CharField(max_length=20, blank=True, null=True)

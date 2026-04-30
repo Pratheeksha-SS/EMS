@@ -19,8 +19,6 @@ from rest_framework.decorators import action
 from rest_framework import status, viewsets, generics, permissions
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import DashboardStatsSerializer
 from django_filters.rest_framework import DjangoFilterBackend
@@ -197,7 +195,7 @@ class EmployeeListCreateView(generics.ListCreateAPIView):
 
 
 class EmployeeDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Employee.objects.all()
+    queryset = Employee.objects.select_related('user')
     serializer_class = EmployeeSerializer
     permission_classes = [IsAuthenticated]
 
@@ -662,15 +660,17 @@ class ManagerLeaveListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'ADMIN':
-            return Leave.objects.all()
+            return Leave.objects.select_related('employee__user', 'approved_by').all()
         elif user.role == 'MANAGER' and user.managed_department:
             department_employees = Employee.objects.filter(
                 department__iexact=user.managed_department,
                 user__role='EMPLOYEE'
             ).values_list('user_id', flat=True)
-            return Leave.objects.filter(employee_id__in=department_employees)
+            return Leave.objects.filter(
+                employee_id__in=department_employees
+            ).select_related('employee__user', 'approved_by')
         else:
-            return Leave.objects.filter(employee=user)
+            return Leave.objects.filter(employee=user).select_related('employee__user', 'approved_by')
 
 
 class DepartmentEmployeesView(generics.ListAPIView):
@@ -681,12 +681,13 @@ class DepartmentEmployeesView(generics.ListAPIView):
         user = self.request.user
         department = self.request.query_params.get('department')
 
+        base_qs = Employee.objects.select_related('user')
         if user.role == 'ADMIN':
             if department:
-                return Employee.objects.filter(department__iexact=department)
-            return Employee.objects.all()
+                return base_qs.filter(department__iexact=department)
+            return base_qs.all()
         elif user.role == 'MANAGER' and user.managed_department:
-            return Employee.objects.filter(department__iexact=user.managed_department)
+            return base_qs.filter(department__iexact=user.managed_department)
         return Employee.objects.none()
 
 
@@ -829,7 +830,7 @@ class AllManagersView(generics.ListAPIView):
     def get_queryset(self):
         if self.request.user.role != 'ADMIN':
             return User.objects.none()
-        return User.objects.filter(role='MANAGER')
+        return User.objects.filter(role='MANAGER').select_related('employee_profile').select_related('employee_profile')
 
 
 class AllUsersView(generics.ListAPIView):
@@ -839,7 +840,7 @@ class AllUsersView(generics.ListAPIView):
     def get_queryset(self):
         if self.request.user.role != 'ADMIN':
             return User.objects.none()
-        return User.objects.all()
+        return User.objects.all().select_related('employee_profile').select_related('employee_profile')
 
 
 class AllDepartmentsView(generics.GenericAPIView):
@@ -1486,34 +1487,54 @@ class DashboardStatsView(generics.GenericAPIView):
         user = request.user
         
         if user.role == 'ADMIN':
-            total_employees = Employee.objects.count()
-            unique_depts = Employee.objects.values('department').distinct().count()
-            pending_leaves = Leave.objects.filter(status='PENDING').count()
-            total_leaves = Leave.objects.count()
+            # Single aggregate query for all counts
+            from django.db.models import Count, Q
+            stats = Employee.objects.aggregate(
+                total_employees=Count('id'),
+                unique_depts=Count('department', distinct=True)
+            )
+            total_employees = stats['total_employees']
+            unique_depts = stats['unique_depts']
+            
+            leave_stats = Leave.objects.aggregate(
+                pending_leaves=Count('id', filter=Q(status='PENDING')),
+                total_leaves=Count('id')
+            )
+            pending_leaves = leave_stats['pending_leaves']
+            total_leaves = leave_stats['total_leaves']
             
         elif user.role == 'MANAGER' and user.managed_department:
-            dept_employees = Employee.objects.filter(department__iexact=user.managed_department).count()
-            total_employees = dept_employees
+            dept_stats = Employee.objects.filter(
+                department__iexact=user.managed_department
+            ).aggregate(
+                total_employees=Count('id'),
+                dept_users_list=Count('user_id', distinct=True)
+            )
+            total_employees = dept_stats['total_employees']
             unique_depts = 1
             
             dept_users = Employee.objects.filter(
                 department__iexact=user.managed_department
             ).values_list('user_id', flat=True)
             
-            pending_leaves = Leave.objects.filter(
-                status='PENDING', employee_id__in=dept_users
-            ).count()
-            total_leaves = Leave.objects.filter(
+            leave_stats = Leave.objects.filter(
                 employee_id__in=dept_users
-            ).count()
+            ).aggregate(
+                pending_leaves=Count('id', filter=Q(status='PENDING')),
+                total_leaves=Count('id')
+            )
+            pending_leaves = leave_stats['pending_leaves']
+            total_leaves = leave_stats['total_leaves']
             
         else:
             total_employees = 1
             unique_depts = 1
-            pending_leaves = Leave.objects.filter(
-                employee=user, status='PENDING'
-            ).count()
-            total_leaves = Leave.objects.filter(employee=user).count()
+            leave_stats = Leave.objects.filter(employee=user).aggregate(
+                pending_leaves=Count('id', filter=Q(status='PENDING')),
+                total_leaves=Count('id')
+            )
+            pending_leaves = leave_stats['pending_leaves']
+            total_leaves = leave_stats['total_leaves']
         
         attendance_rate = 95.2
         recent_activity = Notification.objects.filter(user=user).count()
@@ -1544,11 +1565,12 @@ class CurrentEmployeeSalaryView(generics.ListAPIView):
 class AllSalariesView(generics.ListAPIView):
     serializer_class = SalarySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
         if self.request.user.role != 'ADMIN':
             return Salary.objects.none()
-        return Salary.objects.all().order_by('-year', '-month')
+        return Salary.objects.select_related('employee').order_by('-year', '-month')
 
 
 class EmployeeSalaryManageView(generics.CreateAPIView):
@@ -1677,7 +1699,10 @@ def reports_leaves(request):
         if not start_date or not end_date:
             return Response({"error": "Start/End dates required"}, status=400)
 
-    queryset = Leave.objects.select_related('employee').all().order_by('-applied_at')
+    # Optimized: select_related employee + user to avoid N+1
+    queryset = Leave.objects.select_related(
+        'employee__user', 'approved_by'
+    ).all().order_by('-applied_at')
 
     # For managers, filter to their department only
     if request.user.role == 'MANAGER':
@@ -1704,29 +1729,38 @@ def reports_leaves(request):
 
     leaves = queryset.distinct()
 
+    # Aggregate counts in single query instead of multiple .count() calls
+    summary_counts = leaves.aggregate(
+        total=Count('id'),
+        pending=Count('id', filter=Q(status='PENDING')),
+        approved=Count('id', filter=Q(status='APPROVED')),
+        rejected=Count('id', filter=Q(status='REJECTED')),
+    )
+
     data = []
     for leave in leaves:
+        emp = leave.employee
         data.append({
             'id': leave.id,
             'date': leave.start_date,
-            'employee_name': f"{leave.employee.first_name or ''} {leave.employee.last_name or ''}".strip(),
-            'employee_id': getattr(leave.employee, 'employee_id', 'N/A'),
-            'department': getattr(leave.employee, 'department', 'N/A'),
+            'employee_name': f"{emp.first_name or ''} {emp.last_name or ''}".strip(),
+            'employee_id': getattr(emp, 'employee_id', 'N/A'),
+            'department': getattr(emp, 'department', 'N/A'),
             'leave_type': leave.leave_type,
             'from_date': leave.start_date,
             'to_date': leave.end_date,
             'days': (leave.end_date - leave.start_date).days + 1,
             'status': leave.status,
             'applied_at': leave.applied_at.isoformat() if leave.applied_at else None,
-            'approved_by': getattr(leave.approved_by, 'username', None),
+            'approved_by': leave.approved_by.username if leave.approved_by else None,
             'comments': leave.comments or ''
         })
 
     summary = {
-        'total_leaves': leaves.count(),
-        'pending': leaves.filter(status='PENDING').count(),
-        'approved': leaves.filter(status='APPROVED').count(),
-        'rejected': leaves.filter(status='REJECTED').count(),
+        'total_leaves': summary_counts['total'],
+        'pending': summary_counts['pending'],
+        'approved': summary_counts['approved'],
+        'rejected': summary_counts['rejected'],
         'total_employees': Employee.objects.count()
     }
 
@@ -1802,14 +1836,22 @@ def reports_attendance(request):
     total_late = 0
     total_early_leave = 0
     
+    # Pre-fetch all approved leaves for the period in ONE query
+    employee_user_ids = list(employees.values_list('user_id', flat=True))
+    all_leaves = Leave.objects.filter(
+        employee_id__in=employee_user_ids,
+        start_date__lte=end_dt,
+        end_date__gte=start_dt,
+        status='APPROVED'
+    )
+    # Build lookup dict: user_id -> list of leaves
+    leaves_by_employee = {}
+    for leave in all_leaves:
+        leaves_by_employee.setdefault(leave.employee_id, []).append(leave)
+    
     for employee in employees:
-        # Get leave data for the period
-        leaves_in_period = Leave.objects.filter(
-            employee=employee,
-            start_date__lte=end_dt,
-            end_date__gte=start_dt,
-            status='APPROVED'
-        )
+        # Use prefetched leave data
+        leaves_in_period = leaves_by_employee.get(employee.user_id, [])
         
         leave_days = 0
         for leave in leaves_in_period:
@@ -1926,27 +1968,65 @@ def reports_employees(request):
     except ValueError:
         return Response({"error": "Invalid date format YYYY-MM-DD"}, status=400)
 
+    # Pre-fetch all data to avoid N+1 queries
+    employee_user_ids = list(employees.values_list('user_id', flat=True))
+    
+    # Pre-fetch leaves for all employees in one query
+    all_leaves = Leave.objects.filter(
+        employee_id__in=employee_user_ids,
+        start_date__lte=end_dt,
+        end_date__gte=start_dt
+    )
+    leaves_by_employee = {}
+    for leave in all_leaves:
+        leaves_by_employee.setdefault(leave.employee_id, []).append(leave)
+    
+    # Pre-fetch latest salary for all employees in one query using Subquery/annotate
+    from django.db.models import OuterRef, Subquery
+    latest_salary_subquery = Salary.objects.filter(
+        employee=OuterRef('user')
+    ).order_by('-year', '-month').values('basic_salary', 'house_rent_allowance', 'conveyance_allowance', 
+        'medical_allowance', 'special_allowance', 'bonus', 'overtime',
+        'provident_fund', 'professional_tax', 'income_tax', 'leave_deduction')[:1]
+    
+    employees = employees.annotate(
+        latest_basic=Subquery(latest_salary_subquery.values('basic_salary')),
+        latest_hra=Subquery(latest_salary_subquery.values('house_rent_allowance')),
+        latest_ca=Subquery(latest_salary_subquery.values('conveyance_allowance')),
+        latest_ma=Subquery(latest_salary_subquery.values('medical_allowance')),
+        latest_sa=Subquery(latest_salary_subquery.values('special_allowance')),
+        latest_bonus=Subquery(latest_salary_subquery.values('bonus')),
+        latest_ot=Subquery(latest_salary_subquery.values('overtime')),
+        latest_pf=Subquery(latest_salary_subquery.values('provident_fund')),
+        latest_pt=Subquery(latest_salary_subquery.values('professional_tax')),
+        latest_it=Subquery(latest_salary_subquery.values('income_tax')),
+        latest_ld=Subquery(latest_salary_subquery.values('leave_deduction')),
+    )
+    
     data = []
     
     for employee in employees:
-        # Get leave data for the period
-        leaves_in_period = Leave.objects.filter(
-            employee=employee,
-            start_date__lte=end_dt,
-            end_date__gte=start_dt
-        )
+        # Use prefetched leave data
+        leaves_in_period = leaves_by_employee.get(employee.user_id, [])
         
         total_leave_days = sum(
             min(end_dt, leave.end_date) - max(start_dt, leave.start_date) + timedelta(days=1)
             for leave in leaves_in_period
-        ).days
+        ).days if leaves_in_period else 0
         
-        # Get approved leaves
-        approved_leaves = leaves_in_period.filter(status='APPROVED').count()
-        pending_leaves = leaves_in_period.filter(status='PENDING').count()
+        # Count approved/pending from prefetched data
+        approved_leaves = sum(1 for l in leaves_in_period if l.status == 'APPROVED')
+        pending_leaves = sum(1 for l in leaves_in_period if l.status == 'PENDING')
         
-        # Get salary info (latest)
-        latest_salary = Salary.objects.filter(employee=employee.user).order_by('-year', '-month').first()
+        # Calculate salary from annotated fields (avoids extra query)
+        if employee.latest_basic is not None:
+            gross = (employee.latest_basic or 0) + (employee.latest_hra or 0) + (employee.latest_ca or 0) + (employee.latest_ma or 0) + (employee.latest_sa or 0) + (employee.latest_bonus or 0) + (employee.latest_ot or 0)
+            deductions = (employee.latest_pf or 0) + (employee.latest_pt or 0) + (employee.latest_it or 0) + (employee.latest_ld or 0)
+            latest_salary_net = gross - deductions
+            latest_salary_basic = employee.latest_basic
+        else:
+            latest_salary_net = 0
+            latest_salary_basic = 0
         
         # Calculate tenure
         tenure_days = None
@@ -1975,8 +2055,8 @@ def reports_employees(request):
             'approved_leaves': approved_leaves,
             'pending_leaves': pending_leaves,
             'leave_balance': getattr(employee, 'sick_leave_balance', 0) + getattr(employee, 'casual_leave_balance', 0) + getattr(employee, 'paid_leave_balance', 0),
-            'last_salary': latest_salary.get_net_salary() if latest_salary else 0,
-            'basic_salary': latest_salary.basic_salary if latest_salary else 0,
+            'last_salary': latest_salary_net,
+            'basic_salary': latest_salary_basic,
             'performance_score': performance_score,
             'performance_rating': 'Excellent' if performance_score >= 90 else 'Good' if performance_score >= 80 else 'Average' if performance_score >= 70 else 'Needs Improvement',
             'tasks_completed': tasks_completed,

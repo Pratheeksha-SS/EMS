@@ -72,12 +72,7 @@ const Login = ({ setUser }) => {
         role: receivedRole
       });
 
-      // Managers should land on the employee dashboard first.
-      const rolePath =
-        receivedRole === 'ADMIN'
-          ? '/admin'
-          : '/employee';
-      navigate(rolePath, { replace: true });
+      navigate('/dashboard', { replace: true });
 
     } catch (error) {
       console.error('❌ Login error:', error);

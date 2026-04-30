@@ -498,10 +498,13 @@ class SalarySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'status', 'payment_date']
 
     def get_employee_name(self, obj):
+        # Use select_related prefetched data instead of new query
         try:
-            employee = Employee.objects.get(user=obj.employee)
-            return f"{employee.first_name} {employee.last_name}".strip()
-        except Employee.DoesNotExist:
+            if hasattr(obj.employee, 'employee_profile'):
+                emp = obj.employee.employee_profile
+                return emp.get_full_name() if hasattr(emp, 'get_full_name') else f"{emp.first_name or ''} {emp.last_name or ''}".strip()
+            return str(obj.employee)
+        except Exception:
             return str(obj.employee)
 
     def get_gross_salary(self, obj):
