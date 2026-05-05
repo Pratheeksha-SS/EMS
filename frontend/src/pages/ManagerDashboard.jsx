@@ -139,11 +139,11 @@ const ManagerDashboard = ({ user }) => {
         setLoading(false);
         return;
       }
-      const teamRes = await api.get("department-employees/");
+      const teamRes = await api.get("department-employees/", { params: { page: 1, limit: 10 } });
       const teamData = extractListData(teamRes.data);
       setTeamMembers(teamData);
 
-      const leavesRes = await api.get("manager-leaves/");
+      const leavesRes = await api.get("manager-leaves/", { params: { page: 1, limit: 10 } });
       const teamLeaves = extractListData(leavesRes.data);
 
       const pending = teamLeaves.filter(l => l.status === 'PENDING').length;

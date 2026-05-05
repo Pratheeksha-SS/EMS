@@ -25,9 +25,7 @@ const getExportHeaders = (reportType) => {
     case 'leave':
       return ['Employee Name', 'Employee ID', 'Department', 'Leave Type', 'From Date', 'To Date', 'Total Days', 'Status', 'Reason'];
     case 'employee':
-      return ['Employee Name', 'Employee ID', 'Department', 'Designation', 'Joining Date', 'Tenure (Years)', 'Leaves Taken', 'Performance Rating', 'Last Salary'];
-    case 'salary':
-      return ['Employee Name', 'Employee ID', 'Department', 'Basic Salary', 'Gross Salary', 'Total Deductions', 'Net Salary', 'Payment Status', 'Payment Date'];
+      return ['Employee Name', 'Employee ID', 'Department', 'Designation', 'Joining Date', 'Tenure (Years)', 'Leaves Taken', 'Performance Rating'];
     default:
       return ['Employee Name', 'Employee ID', 'Department', 'Status'];
   }
@@ -40,9 +38,7 @@ const getExportRow = (item, reportType) => {
     case 'leave':
       return [item.employee_name, item.employee_id, item.department, item.leave_type, item.start_date, item.end_date, item.total_days, item.status, item.reason];
     case 'employee':
-      return [item.employee_name, item.employee_id, item.department, item.designation, item.joining_date, item.tenure_years, item.leaves_taken, item.performance_rating, item.last_salary];
-    case 'salary':
-      return [item.employee_name, item.employee_id, item.department, item.basic_salary, item.gross_salary, item.total_deductions, item.net_salary, item.payment_status, item.payment_date];
+      return [item.employee_name, item.employee_id, item.department, item.designation, item.joining_date, item.tenure_years, item.leaves_taken, item.performance_rating];
     default:
       return [item.employee_name, item.employee_id, item.department, item.status];
   }
@@ -57,7 +53,6 @@ const generatePrintHTML = ({ reportType, data, summary, dateLabel }) => {
     attendance: 'Attendance Report',
     leave:      'Leave Report',
     employee:   'Employee Activity Report',
-    salary:     'Salary Report',
   };
 
   const rows = data.map(item =>

@@ -4,7 +4,6 @@ import axios from 'axios';
 import ApplyLeave from '../components/ApplyLeave';
 import Notification from '../components/Notification';
 import EmployeeHolidayPage from './EmployeeHolidayPage';
-import Salary from './Salary';
 import { extractListData } from '../utils/extractListData';
 import { User, Mail, Phone, MapPin, Users, Globe, Calendar, Building, BookOpen, DollarSign, Edit2, Lock } from 'lucide-react';
 
@@ -172,7 +171,6 @@ const EmployeeDashboard = ({ user, setUser }) => {
     { id: 'profile',       label: 'My Profile',     icon: '👤' },
     { id: 'attendance',    label: 'Attendance',     icon: '📅' },
     { id: 'leaves',        label: 'Leave Requests', icon: '📝' },
-    { id: 'salary',        label: 'Salary',         icon: '💰' },
     { id: 'holidays',      label: 'Holidays',       icon: '🗓️' },
   ];
 
@@ -364,71 +362,124 @@ const EmployeeDashboard = ({ user, setUser }) => {
       boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
     }}>
       {/* Logo */}
-      <div style={{
-        padding: sidebarCollapsed ? '20px 16px' : '22px 24px',
-        flexShrink: 0, borderBottom: '1.5px solid #F1F5F9',
-        display: 'flex', alignItems: 'center',
-        justifyContent: sidebarCollapsed ? 'center' : 'space-between',
-        minHeight: '72px',
-      }}>
-        {!sidebarCollapsed && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-            <span style={{ fontSize: '26px', fontWeight: '800', color: '#0F172A', letterSpacing: '-1px', fontFamily: "'Montserrat','Poppins',sans-serif" }}>EL</span>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <span style={{ fontSize: '26px', fontWeight: '800', color: '#0F172A', fontFamily: "'Montserrat','Poppins',sans-serif" }}>O</span>
-              <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '3px', height: '3px', backgroundColor: '#0F172A', borderRadius: '50%' }} />
-            </div>
-            <span style={{ fontSize: '26px', fontWeight: '800', color: '#0F172A', fontFamily: 'sans-serif' }}>G</span>
-            <span style={{ fontSize: '26px', fontWeight: '800', color: '#F97316', letterSpacing: '-1px', fontFamily: "'Montserrat','Poppins',sans-serif" }}>IXA</span>
-          </div>
-        )}
-        {sidebarCollapsed && (
-          <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg,#F97316,#EA580C)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: 'white', fontWeight: '800' }}>E</div>
-        )}
-        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{
-          width: '28px', height: '28px', background: '#F8FAFC',
-          border: '1.5px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '14px', color: '#64748B', flexShrink: 0,
-        }} title={sidebarCollapsed ? 'Expand' : 'Collapse'}>
-          {sidebarCollapsed ? '→' : '←'}
-        </button>
-      </div>
-
-      {/* Employee chip */}
-      {!sidebarCollapsed && (
-        <div style={{
-          margin: '12px 16px',
-          padding: '8px 12px',
-          backgroundColor: '#FFF7ED', borderRadius: '8px', border: '1px solid #FED7AA',
-          display: 'flex', alignItems: 'center', gap: '8px',
-        }}>
+      <div style={{ padding: '1px 40px 20px 40px', textAlign: 'center' }}>
           <div style={{
-            width: '28px', height: '28px', borderRadius: '50%',
-            background: 'linear-gradient(135deg,#F97316,#EA580C)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '11px', fontWeight: '800', color: 'white', flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: '-50px'
           }}>
-            {(employeeData?.first_name || user?.username || 'E').charAt(0).toUpperCase()}
-          </div>
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {employeeData?.first_name || user?.username || 'Employee'}
+            <span style={{
+              fontSize: '30px',
+              fontWeight: '600',
+              color: '#000000',
+              letterSpacing: '-1px',
+              fontFamily: "'Montserrat', 'Poppins', sans-serif"
+            }}>
+              EL
+            </span>
+
+            {/* The "O" with dot inside */}
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <span style={{
+                fontSize: '30px',
+                fontWeight: '600',
+                color: '#000000',
+                fontFamily: "'Montserrat', 'Poppins', sans-serif"
+              }}>
+                O
+              </span>
+              <span style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '5px',
+                height: '5px',
+                backgroundColor: '#000000',
+                borderRadius: '50%',
+                zIndex: 2
+              }}></span>
             </div>
-            <div style={{ fontSize: '10px', color: '#EA580C', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {isManager ? 'Manager' : 'Employee'}
+
+            <span style={{
+              fontSize: '30px',
+              fontWeight: '600',
+              color: '#000000',
+              letterSpacing: '-1px',
+              fontFamily: "sans-serif"
+            }}>
+              G
+            </span>
+
+            <span style={{
+              fontSize: '30px',
+              fontWeight: '600',
+              color: '#ff9933',
+              letterSpacing: '-1px',
+              fontFamily: "'Montserrat', 'Poppins', sans-serif"
+            }}>
+              IXA
+            </span>
+            {/* Modern Triangle Cluster - Positioned to the right of text */}
+            <div style={{
+              position: 'relative',
+              width: '80px',
+              height: '150px',
+              marginLeft: '-10px',
+              display: 'inline-block',
+              verticalAlign: 'middle'
+            }}>
+              {/* Bottom Green Triangle - Largest, bottom-right, rotated +10° */}
+              <div style={{
+                position: 'absolute',
+                bottom: '80px',
+                right: '8px',
+                width: 0,
+                height: 0,
+                borderLeft: '18px solid transparent',
+                borderRight: '18px solid transparent',
+                borderBottom: '31px solid #4caf50',
+                transform: 'rotate(-10deg)',
+                transformOrigin: 'center',
+                zIndex: 1
+              }} />
+              
+              {/* Middle Orange Triangle - Slightly smaller, left position, rotated -20° */}
+              <div style={{
+                position: 'absolute',
+                top: '35px',
+                left: '-5px',
+                width: 0,
+                height: 0,
+                borderLeft: '14px solid transparent',
+                borderRight: '14px solid transparent',
+                borderTop: '24px solid #ff9933',
+                transform: 'rotate(-50deg)',
+                transformOrigin: 'center',
+                zIndex: 2
+              }} />
+              
+              {/* Top Dark Gray Triangle - Medium size, top-right, rotated +30° */}
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '16px',
+                width: 0,
+                height: 0,
+                borderLeft: '16px solid transparent',
+                borderRight: '16px solid transparent',
+                borderTop: '28px solid #2d3748',
+                transform: 'rotate(25deg)',
+                transformOrigin: 'center',
+                zIndex: 3
+              }} />
             </div>
           </div>
         </div>
-      )}
 
       {/* Nav items */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {!sidebarCollapsed && (
-          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px', padding: '8px 20px 6px' }}>
-            Navigation
-          </div>
-        )}
         {menuItems.map(item => {
           const active = activeTab === item.id;
           return (
@@ -1186,7 +1237,6 @@ const EmployeeDashboard = ({ user, setUser }) => {
       case 'profile':       return renderProfile();
       case 'attendance':    return renderAttendance();
       case 'leaves':        return renderLeaves();
-      case 'salary':        return <Salary user={user} />;
       case 'holidays':      return <EmployeeHolidayPage />;
       default:              return renderDashboard();
     }

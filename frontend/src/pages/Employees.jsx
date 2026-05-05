@@ -874,7 +874,6 @@ const Employees = () => {
             <option value="">Select Account Type</option>
             <option value="SAVINGS">Savings Account</option>
             <option value="CURRENT">Current Account</option>
-            <option value="SALARY">Salary Account</option>
           </select>
         </div>
       </div>

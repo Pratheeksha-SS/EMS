@@ -90,7 +90,6 @@ const reportTypes = [
   { value: 'attendance', label: '📅 Attendance Report' },
   { value: 'leave',      label: '📝 Leave Report' },
   { value: 'employee',   label: '👥 Employee Activity' },
-  { value: 'salary',     label: '💰 Salary Report' },
 ];
 
 const frequencies = [

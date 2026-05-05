@@ -2,6 +2,7 @@ import axios from 'axios';
 import { extractListData } from '../utils/extractListData';
 
 const BASE_URL = 'http://127.0.0.1:8000';
+const holidayCache = new Map();
 
 const getToken = () => localStorage.getItem('access_token');
 
@@ -20,12 +21,19 @@ api.interceptors.request.use(
 
 export const holidayService = {
   getHolidays: async (year = null) => {
+    const cacheKey = year ? String(year) : 'all';
+    if (holidayCache.has(cacheKey)) {
+      return holidayCache.get(cacheKey);
+    }
+
     try {
       const url = year
         ? `${BASE_URL}/api/holidays/?year=${year}`
         : `${BASE_URL}/api/holidays/`;
       const response = await api.get(url);
-      return extractListData(response.data);
+      const data = extractListData(response.data);
+      holidayCache.set(cacheKey, data);
+      return data;
     } catch (error) {
       console.error('Error fetching holidays:', error);
       throw error;

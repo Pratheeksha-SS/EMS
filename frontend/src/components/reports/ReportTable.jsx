@@ -97,18 +97,6 @@ const getColumns = (reportType) => {
         { key: 'tenure_years',      label: 'Tenure',       render: v => v ? <span style={{ fontWeight: '700', color: '#2563EB' }}>{v}y</span> : '—' },
         { key: 'leaves_taken',      label: 'Leaves',       render: v => v ?? '—' },
         { key: 'performance_rating',label: 'Performance',  render: v => <StatusBadge value={v} /> },
-        { key: 'last_salary',       label: 'Salary',       render: v => v ? <span style={{ fontWeight: '700', color: '#16A34A' }}>₹{Number(v).toLocaleString()}</span> : '—' },
-      ];
-    case 'salary':
-      return [
-        { key: 'employee_name',    label: 'Employee',      render: (v, r) => <AvatarCell name={v} sub={r.employee_id} /> },
-        { key: 'department',       label: 'Department',    render: v => <DeptChip value={v} /> },
-        { key: 'basic_salary',     label: 'Basic',         render: v => v ? `₹${Number(v).toLocaleString()}` : '—' },
-        { key: 'gross_salary',     label: 'Gross',         render: v => v ? `₹${Number(v).toLocaleString()}` : '—' },
-        { key: 'total_deductions', label: 'Deductions',    render: v => v ? <span style={{ color: '#DC2626' }}>-₹{Number(v).toLocaleString()}</span> : '—' },
-        { key: 'net_salary',       label: 'Net Salary',    render: v => v ? <span style={{ fontWeight: '800', color: '#16A34A' }}>₹{Number(v).toLocaleString()}</span> : '—' },
-        { key: 'payment_status',   label: 'Status',        render: v => <StatusBadge value={v} /> },
-        { key: 'payment_date',     label: 'Paid On',       render: v => v || '—' },
       ];
     default:
       return [

@@ -653,8 +653,8 @@ const ManagerAdminDashboard = ({ user, setUser, activePage }) => {
       const token = localStorage.getItem('access_token');
       const [statsRes, teamRes, leavesRes] = await Promise.all([
         axios.get('/dashboard-stats/',     { headers: { Authorization: `Bearer ${token}` }, signal: cancelRef.current.signal }),
-        axios.get('department-employees/', { headers: { Authorization: `Bearer ${token}` }, signal: cancelRef.current.signal }),
-        axios.get('/manager-leaves/',      { headers: { Authorization: `Bearer ${token}` }, signal: cancelRef.current.signal }),
+        axios.get('/department-employees/', { params: { page: 1, limit: 10 }, headers: { Authorization: `Bearer ${token}` }, signal: cancelRef.current.signal }),
+        axios.get('/manager-leaves/',      { params: { page: 1, limit: 10 }, headers: { Authorization: `Bearer ${token}` }, signal: cancelRef.current.signal }),
       ]);
       const bs = statsRes.data;
       const teamList  = extractListData(teamRes.data);

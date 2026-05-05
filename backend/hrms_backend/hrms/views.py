@@ -31,7 +31,7 @@ import random
 import string
 import time
 
-from .models import Employee, Leave, Department, Notification, Meeting, Holiday, Announcement, Salary, User, Visitor, InternDetail, InternAttendance, InternTask, GuestVisit, VisitorLog, DepartmentVisitStats
+from .models import Employee, Leave, Department, Notification, Meeting, Holiday, Announcement, User, Visitor, InternDetail, InternAttendance, InternTask, GuestVisit, VisitorLog, DepartmentVisitStats
 from django.db.models import Q, Count
 from django.core.cache import cache
 from collections import defaultdict
@@ -39,6 +39,7 @@ from django.utils.dateparse import parse_date
 import datetime
 from .serializers import (
     EmployeeSerializer,
+    EmployeeListItemSerializer,
     LeaveSerializer,
     MeetingSerializer,
     HolidaySerializer,
@@ -49,7 +50,6 @@ from .serializers import (
     DepartmentSerializer,
     NotificationSerializer,
     AnnouncementSerializer,
-    SalarySerializer,
     VisitorSerializer,
     InternDetailSerializer, 
     InternAttendanceSerializer,
@@ -60,6 +60,12 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'limit'
+    max_page_size = 100
 
 
 def resolve_user_from_login_identifier(identifier):
@@ -148,21 +154,37 @@ class CurrentUserView(generics.RetrieveAPIView):
 class EmployeeListCreateView(generics.ListCreateAPIView):
     serializer_class = EmployeeSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET' and self.request.query_params.get('compact') == '1':
+            return EmployeeListItemSerializer
+        return EmployeeSerializer
 
     def get_queryset(self):
-        cache_key = f'employees_list_{self.request.query_params.get("department", "all")}'
-        queryset = cache.get(cache_key)
-        if queryset is None:
-            queryset = Employee.objects.select_related('user').all()
-            department = self.request.query_params.get('department')
-            if department:
-                queryset = queryset.filter(department__iexact=department)
-            cache.set(cache_key, queryset, timeout=300)  # Cache for 5 minutes
-        else:
-            department = self.request.query_params.get('department')
-            if department:
-                queryset = queryset.filter(department__iexact=department)
+        user = self.request.user
+        department = self.request.query_params.get('department')
+        queryset = Employee.objects.select_related('user').order_by('first_name', 'last_name', 'id')
+
+        if user.role == 'MANAGER':
+            if not user.managed_department:
+                return Employee.objects.none()
+            queryset = queryset.filter(department__iexact=user.managed_department)
+        elif user.role != 'ADMIN':
+            queryset = queryset.filter(user=user)
+
+        if department:
+            queryset = queryset.filter(department__iexact=department)
+
+        if self.request.query_params.get('compact') == '1':
+            queryset = queryset.only(
+                'id', 'user_id', 'employee_id', 'first_name', 'middle_name', 'last_name',
+                'email', 'phone', 'department', 'designation', 'joining_date',
+                'profile_image', 'emergency_contact_name',
+                'emergency_contact_relationship', 'emergency_contact_phone',
+                'emergency_contact_occupation', 'user__username', 'user__role',
+            )
+
         return queryset
 
     def create(self, request, *args, **kwargs):
@@ -472,7 +494,7 @@ class LeaveViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'ADMIN':
-            return Leave.objects.select_related('employee__user').all().order_by('-applied_at')
+            return Leave.objects.select_related('employee').all().order_by('-applied_at')
         elif user.role == 'MANAGER':
             if hasattr(user, 'managed_department') and user.managed_department:
                 dept_employees = Employee.objects.filter(
@@ -480,7 +502,7 @@ class LeaveViewSet(viewsets.ModelViewSet):
                 ).values_list('user_id', flat=True)
                 return Leave.objects.filter(
                     employee_id__in=dept_employees
-                ).select_related('employee__user').order_by('-applied_at')
+                ).select_related('employee').order_by('-applied_at')
             return Leave.objects.none()
         return Leave.objects.filter(
             employee=user
@@ -656,11 +678,12 @@ class ManagerLeaveListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status']
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
         if user.role == 'ADMIN':
-            return Leave.objects.select_related('employee__user', 'approved_by').all()
+            return Leave.objects.select_related('employee', 'approved_by').order_by('-applied_at')
         elif user.role == 'MANAGER' and user.managed_department:
             department_employees = Employee.objects.filter(
                 department__iexact=user.managed_department,
@@ -668,20 +691,27 @@ class ManagerLeaveListView(generics.ListAPIView):
             ).values_list('user_id', flat=True)
             return Leave.objects.filter(
                 employee_id__in=department_employees
-            ).select_related('employee__user', 'approved_by')
+            ).select_related('employee', 'approved_by').order_by('-applied_at')
         else:
-            return Leave.objects.filter(employee=user).select_related('employee__user', 'approved_by')
+            return Leave.objects.filter(employee=user).select_related('employee', 'approved_by').order_by('-applied_at')
 
 
 class DepartmentEmployeesView(generics.ListAPIView):
-    serializer_class = EmployeeSerializer
+    serializer_class = EmployeeListItemSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
         department = self.request.query_params.get('department')
 
-        base_qs = Employee.objects.select_related('user')
+        base_qs = Employee.objects.select_related('user').only(
+            'id', 'user_id', 'employee_id', 'first_name', 'middle_name', 'last_name',
+            'email', 'phone', 'department', 'designation', 'joining_date',
+            'profile_image', 'emergency_contact_name',
+            'emergency_contact_relationship', 'emergency_contact_phone',
+            'emergency_contact_occupation', 'user__username', 'user__role',
+        ).order_by('first_name', 'last_name', 'id')
         if user.role == 'ADMIN':
             if department:
                 return base_qs.filter(department__iexact=department)
@@ -999,9 +1029,66 @@ class DepartmentListCreateView(generics.ListCreateAPIView):
     serializer_class = DepartmentSerializer
     permission_classes = [IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response({"error": "Only admin can view departments"}, status=status.HTTP_403_FORBIDDEN)
+
+        include_employee_departments = request.query_params.get('include_employee_departments') == '1'
+        cache_key = f'departments_summary_v2_include_{int(include_employee_departments)}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        employee_counts = {
+            row['department']: row['count']
+            for row in (
+                Employee.objects
+                .exclude(department='')
+                .values('department')
+                .annotate(count=Count('id'))
+            )
+        }
+
+        departments = list(Department.objects.select_related('manager').order_by('name'))
+        seen = set()
+        data = []
+        for dept in departments:
+            key = dept.name.strip().lower()
+            seen.add(key)
+            data.append({
+                'id': dept.id,
+                'name': dept.name,
+                'description': dept.description,
+                'manager': dept.manager_id,
+                'manager_name': dept.manager.username if dept.manager else None,
+                'employee_count': employee_counts.get(dept.name, 0),
+                'source': 'backend',
+            })
+
+        if include_employee_departments:
+            next_id = 1
+            for name, count in employee_counts.items():
+                if name.strip().lower() in seen:
+                    continue
+                data.append({
+                    'id': f'empdept-{next_id}',
+                    'name': name,
+                    'description': '',
+                    'manager': None,
+                    'manager_name': None,
+                    'employee_count': count,
+                    'source': 'employee',
+                })
+                next_id += 1
+
+        cache.set(cache_key, data, timeout=300)
+        return Response(data)
+
     def create(self, request, *args, **kwargs):
         if request.user.role != 'ADMIN':
             return Response({"error": "Only admin can create departments"}, status=status.HTTP_403_FORBIDDEN)
+        cache.delete('departments_summary_v2_include_0')
+        cache.delete('departments_summary_v2_include_1')
         return super().create(request, *args, **kwargs)
 
 
@@ -1013,11 +1100,15 @@ class DepartmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         if request.user.role != 'ADMIN':
             return Response({"error": "Only admin can update departments"}, status=status.HTTP_403_FORBIDDEN)
+        cache.delete('departments_summary_v2_include_0')
+        cache.delete('departments_summary_v2_include_1')
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         if request.user.role != 'ADMIN':
             return Response({"error": "Only admin can delete departments"}, status=status.HTTP_403_FORBIDDEN)
+        cache.delete('departments_summary_v2_include_0')
+        cache.delete('departments_summary_v2_include_1')
         return super().destroy(request, *args, **kwargs)
 
 
@@ -1026,7 +1117,7 @@ class DepartmentListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Department.objects.all()
+        return Department.objects.select_related('manager').order_by('name')
 
 
 # ✅ Notification Views
@@ -1485,6 +1576,10 @@ class DashboardStatsView(generics.GenericAPIView):
 
     def get(self, request):
         user = request.user
+        cache_key = f'dashboard_stats_{user.id}_{user.role}_{user.managed_department or "none"}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         
         if user.role == 'ADMIN':
             # Single aggregate query for all counts
@@ -1549,130 +1644,8 @@ class DashboardStatsView(generics.GenericAPIView):
         }
         
         serializer = self.get_serializer(data)
+        cache.set(cache_key, serializer.data, timeout=120)
         return Response(serializer.data)
-
-
-# ================= SALARY ================= #
-
-class CurrentEmployeeSalaryView(generics.ListAPIView):
-    serializer_class = SalarySerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Salary.objects.filter(employee=self.request.user).order_by('-year', '-month')
-
-
-class AllSalariesView(generics.ListAPIView):
-    serializer_class = SalarySerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination
-
-    def get_queryset(self):
-        if self.request.user.role != 'ADMIN':
-            return Salary.objects.none()
-        return Salary.objects.select_related('employee').order_by('-year', '-month')
-
-
-class EmployeeSalaryManageView(generics.CreateAPIView):
-    serializer_class = SalarySerializer
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        if request.user.role != 'ADMIN':
-            return Response(
-                {"error": "Only admin can manage salaries"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        user_id = request.data.get('employee')
-        month = request.data.get('month')
-        year = request.data.get('year')
-
-        existing = Salary.objects.filter(
-            employee_id=user_id, month=month, year=year).first()
-        if existing:
-            return Response(
-                {
-                    "error": "Salary already exists for this month/year",
-                    "salary_id": existing.id
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        try:
-            employee_user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {"error": f"Employee not found with ID: {user_id}"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        salary = Salary.objects.create(
-            employee=employee_user,
-            month=month,
-            year=year,
-            basic_salary=request.data.get('basic_salary', 0),
-            house_rent_allowance=request.data.get('house_rent_allowance', 0),
-            conveyance_allowance=request.data.get('conveyance_allowance', 0),
-            medical_allowance=request.data.get('medical_allowance', 0),
-            special_allowance=request.data.get('special_allowance', 0),
-            bonus=request.data.get('bonus', 0),
-            overtime=request.data.get('overtime', 0),
-            provident_fund=request.data.get('provident_fund', 0),
-            professional_tax=request.data.get('professional_tax', 0),
-            income_tax=request.data.get('income_tax', 0),
-            leave_deduction=request.data.get('leave_deduction', 0),
-        )
-        serializer = self.get_serializer(salary)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-class EmployeeSalaryUpdateView(generics.UpdateAPIView):
-    queryset = Salary.objects.all()
-    serializer_class = SalarySerializer
-    permission_classes = [IsAuthenticated]
-
-    def update(self, request, *args, **kwargs):
-        if request.user.role != 'ADMIN':
-            return Response(
-                {"error": "Only admin can update salaries"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().update(request, *args, **kwargs)
-
-
-class EmployeeSalaryMarkPaidView(generics.UpdateAPIView):
-    queryset = Salary.objects.all()
-    serializer_class = SalarySerializer
-    permission_classes = [IsAuthenticated]
-
-    def update(self, request, *args, **kwargs):
-        if request.user.role != 'ADMIN':
-            return Response(
-                {"error": "Only admin can mark salaries as paid"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        salary = self.get_object()
-        salary.status = 'PAID'
-        salary.payment_date = timezone.now().date()
-        salary.save()
-        return Response({
-            "message": "Salary marked as paid",
-            "salary_id": salary.id,
-            "payment_date": salary.payment_date
-        })
-
-
-class EmployeeSalaryDetailView(generics.RetrieveAPIView):
-    queryset = Salary.objects.all()
-    serializer_class = SalarySerializer
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
-        salary = self.get_object()
-        if request.user.role != 'ADMIN' and salary.employee != request.user:
-            return Response(
-                {"error": "You don't have permission to view this salary"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().get(request, *args, **kwargs)
 
 
 @api_view(['GET'])
@@ -1968,7 +1941,7 @@ def reports_employees(request):
     except ValueError:
         return Response({"error": "Invalid date format YYYY-MM-DD"}, status=400)
 
-    # Pre-fetch all data to avoid N+1 queries
+    # Pre-fetch all leaves to avoid N+1 queries
     employee_user_ids = list(employees.values_list('user_id', flat=True))
     
     # Pre-fetch leaves for all employees in one query
@@ -1980,28 +1953,6 @@ def reports_employees(request):
     leaves_by_employee = {}
     for leave in all_leaves:
         leaves_by_employee.setdefault(leave.employee_id, []).append(leave)
-    
-    # Pre-fetch latest salary for all employees in one query using Subquery/annotate
-    from django.db.models import OuterRef, Subquery
-    latest_salary_subquery = Salary.objects.filter(
-        employee=OuterRef('user')
-    ).order_by('-year', '-month').values('basic_salary', 'house_rent_allowance', 'conveyance_allowance', 
-        'medical_allowance', 'special_allowance', 'bonus', 'overtime',
-        'provident_fund', 'professional_tax', 'income_tax', 'leave_deduction')[:1]
-    
-    employees = employees.annotate(
-        latest_basic=Subquery(latest_salary_subquery.values('basic_salary')),
-        latest_hra=Subquery(latest_salary_subquery.values('house_rent_allowance')),
-        latest_ca=Subquery(latest_salary_subquery.values('conveyance_allowance')),
-        latest_ma=Subquery(latest_salary_subquery.values('medical_allowance')),
-        latest_sa=Subquery(latest_salary_subquery.values('special_allowance')),
-        latest_bonus=Subquery(latest_salary_subquery.values('bonus')),
-        latest_ot=Subquery(latest_salary_subquery.values('overtime')),
-        latest_pf=Subquery(latest_salary_subquery.values('provident_fund')),
-        latest_pt=Subquery(latest_salary_subquery.values('professional_tax')),
-        latest_it=Subquery(latest_salary_subquery.values('income_tax')),
-        latest_ld=Subquery(latest_salary_subquery.values('leave_deduction')),
-    )
     
     data = []
     
@@ -2017,16 +1968,6 @@ def reports_employees(request):
         # Count approved/pending from prefetched data
         approved_leaves = sum(1 for l in leaves_in_period if l.status == 'APPROVED')
         pending_leaves = sum(1 for l in leaves_in_period if l.status == 'PENDING')
-        
-        # Calculate salary from annotated fields (avoids extra query)
-        if employee.latest_basic is not None:
-            gross = (employee.latest_basic or 0) + (employee.latest_hra or 0) + (employee.latest_ca or 0) + (employee.latest_ma or 0) + (employee.latest_sa or 0) + (employee.latest_bonus or 0) + (employee.latest_ot or 0)
-            deductions = (employee.latest_pf or 0) + (employee.latest_pt or 0) + (employee.latest_it or 0) + (employee.latest_ld or 0)
-            latest_salary_net = gross - deductions
-            latest_salary_basic = employee.latest_basic
-        else:
-            latest_salary_net = 0
-            latest_salary_basic = 0
         
         # Calculate tenure
         tenure_days = None
@@ -2055,8 +1996,6 @@ def reports_employees(request):
             'approved_leaves': approved_leaves,
             'pending_leaves': pending_leaves,
             'leave_balance': getattr(employee, 'sick_leave_balance', 0) + getattr(employee, 'casual_leave_balance', 0) + getattr(employee, 'paid_leave_balance', 0),
-            'last_salary': latest_salary_net,
-            'basic_salary': latest_salary_basic,
             'performance_score': performance_score,
             'performance_rating': 'Excellent' if performance_score >= 90 else 'Good' if performance_score >= 80 else 'Average' if performance_score >= 70 else 'Needs Improvement',
             'tasks_completed': tasks_completed,
@@ -2073,8 +2012,6 @@ def reports_employees(request):
         'total_leaves': sum(d['leaves_taken'] for d in data),
         'pending_leaves': sum(d['pending_leaves'] for d in data),
         'approved_leaves': sum(d['approved_leaves'] for d in data),
-        'average_salary': round(sum(d['last_salary'] for d in data) / len(data), 2) if data else 0,
-        'average_performance': round(sum(d['performance_score'] for d in data) / len(data), 1) if data else 0,
         'departments_covered': len(set(d['department'] for d in data if d['department'] != 'N/A')),
         'excellent_performers': len([d for d in data if d['performance_rating'] == 'Excellent']),
         'high_performers': len([d for d in data if d['performance_rating'] in ['Excellent', 'Good']]),
@@ -2087,123 +2024,6 @@ def reports_employees(request):
         'summary': summary
     }, status=200)
 
-
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def reports_salary(request):
-    """HR Salary Report"""
-    if request.user.role not in ['ADMIN', 'MANAGER']:
-        return Response({"error": "Admin or Manager only"}, status=403)
-
-    scope = request.query_params.get('scope', 'all')
-    employee_id = request.query_params.get('employee_id')
-    department = request.query_params.get('department', 'all')
-    date_mode = request.query_params.get('date_mode', 'single')
-    frequency = request.query_params.get('frequency', 'monthly')
-
-    # For salary reports, we typically look at monthly data
-    if date_mode == 'single':
-        # Single date means specific month
-        date_str = request.query_params.get('date')
-        if not date_str:
-            return Response({"error": "Date required"}, status=400)
-        try:
-            query_date = parse_date(date_str)
-            month = query_date.month
-            year = query_date.year
-        except ValueError:
-            return Response({"error": "Invalid date format YYYY-MM-DD"}, status=400)
-    else:
-        # Range - we'll use the end date for the month
-        end_date = request.query_params.get('end_date')
-        if not end_date:
-            return Response({"error": "End date required"}, status=400)
-        try:
-            query_date = parse_date(end_date)
-            month = query_date.month
-            year = query_date.year
-        except ValueError:
-            return Response({"error": "Invalid date format YYYY-MM-DD"}, status=400)
-
-    queryset = Salary.objects.select_related('employee__employee_profile').all()
-
-    # For managers, filter to their department only
-    if request.user.role == 'MANAGER':
-        manager_dept = request.user.managed_department
-        if manager_dept:
-            queryset = queryset.filter(employee__employee_profile__department__iexact=manager_dept)
-        else:
-            return Response({"error": "Manager not assigned to a department"}, status=403)
-
-    if scope == 'individual' and employee_id:
-        queryset = queryset.filter(employee_id=employee_id)
-    if department != 'all' and request.user.role == 'ADMIN':
-        queryset = queryset.filter(employee__employee_profile__department__icontains=department)
-
-    # Filter by month and year
-    salaries = queryset.filter(month=month, year=year).distinct()
-
-    data = []
-    total_basic = 0
-    total_gross = 0
-    total_deductions = 0
-    total_net = 0
-    
-    for salary in salaries:
-        employee = salary.employee.employee_profile if hasattr(salary.employee, 'employee_profile') else None
-        
-        salary_data = {
-            'id': salary.id,
-            'employee_name': f"{employee.first_name or ''} {employee.last_name or ''}".strip() if employee else salary.employee.username,
-            'employee_id': getattr(employee, 'employee_id', 'N/A') if employee else 'N/A',
-            'department': getattr(employee, 'department', 'N/A') if employee else 'N/A',
-            'designation': getattr(employee, 'designation', 'N/A') if employee else 'N/A',
-            'month': salary.month,
-            'year': salary.year,
-            'basic_salary': salary.basic_salary,
-            'house_rent_allowance': salary.house_rent_allowance,
-            'conveyance_allowance': salary.conveyance_allowance,
-            'medical_allowance': salary.medical_allowance,
-            'special_allowance': salary.special_allowance,
-            'bonus': salary.bonus,
-            'overtime': salary.overtime,
-            'gross_salary': salary.get_gross_salary(),
-            'provident_fund': salary.provident_fund,
-            'professional_tax': salary.professional_tax,
-            'income_tax': salary.income_tax,
-            'leave_deduction': salary.leave_deduction,
-            'total_deductions': salary.get_total_deductions(),
-            'net_salary': salary.get_net_salary(),
-            'payment_status': salary.status,
-            'payment_date': salary.payment_date,
-        }
-        
-        data.append(salary_data)
-        total_basic += salary.basic_salary
-        total_gross += salary.get_gross_salary()
-        total_deductions += salary.get_total_deductions()
-        total_net += salary.get_net_salary()
-
-    summary = {
-        'total_employees': salaries.count(),
-        'total_basic_salary': total_basic,
-        'total_gross_salary': total_gross,
-        'total_deductions': total_deductions,
-        'total_net_salary': total_net,
-        'average_basic_salary': round(total_basic / salaries.count(), 2) if salaries.count() > 0 else 0,
-        'average_gross_salary': round(total_gross / salaries.count(), 2) if salaries.count() > 0 else 0,
-        'average_net_salary': round(total_net / salaries.count(), 2) if salaries.count() > 0 else 0,
-        'paid_salaries': salaries.filter(status='PAID').count(),
-        'pending_salaries': salaries.filter(status='PENDING').count(),
-        'month': month,
-        'year': year,
-        'report_period': f"{month:02d}/{year}"
-    }
-
-    return Response({
-        'data': data,
-        'summary': summary
-    }, status=200)
 
 # ================= VISITOR MANAGEMENT ================= #
 

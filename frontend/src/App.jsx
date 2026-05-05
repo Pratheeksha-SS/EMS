@@ -3,6 +3,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import axios from 'axios';
 import ErrorBoundary from './components/ErrorBoundary';
+import ChatbotWidget from "./components/ChatbotWidget";
 
 // Setup axios
 axios.defaults.baseURL = "http://localhost:8000/api";
@@ -218,6 +219,7 @@ function App() {
             </Routes>
           </Suspense>
         </ErrorBoundary>
+        <ChatbotWidget />
       </BrowserRouter>
     </QueryClientProvider>
   );

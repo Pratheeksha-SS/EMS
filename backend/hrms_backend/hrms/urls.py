@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from django.conf import settings
+from .views_chatbot import ChatbotView
 from django.conf.urls.static import static
 from .views import (
     reports_leaves,
@@ -70,7 +71,6 @@ from .views import (
     intern_performance_report,
     reports_attendance,
     reports_employees,
-    reports_salary,
 )
 # Import employee views
 try:
@@ -122,6 +122,7 @@ urlpatterns = [
     path('employees/me/update/', EmployeeProfileUpdateView.as_view(), name='employee-profile-update'),
     path('employees/me/set-password/', EmployeeSetPasswordView.as_view(), name='employee-set-password'),
     path('employees/<int:pk>/', EmployeeDetailView.as_view(), name='employee-detail'),
+    path("chatbot/", ChatbotView.as_view(), name="chatbot"),   
     
     # ➕ Add Employee
     path('add-employee/', AddEmployeeView.as_view(), name='add-employee'),
@@ -169,7 +170,6 @@ urlpatterns = [
     path('reports/leaves/', reports_leaves, name='reports-leaves'),
     path('reports/attendance/', reports_attendance, name='reports-attendance'),
     path('reports/employees/', reports_employees, name='reports-employees'),
-    path('reports/salary/', reports_salary, name='reports-salary'),
     
     # 👥 Visitor Management
     path('visitors/', VisitorListCreateView.as_view(), name='visitor-list'),

@@ -23,6 +23,11 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.username} - {self.role}"
 
+    class Meta(AbstractUser.Meta):
+        indexes = [
+            models.Index(fields=['role', 'managed_department'], name='hrms_user_role_dept_idx'),
+        ]
+
 
 class Department(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -75,11 +80,10 @@ class Employee(models.Model):
         ('grade', 'Grade'),
     )
 
-    ACCOUNT_TYPE_CHOICES = (
+    ACCOUNT_TYPE_CHOICES = [
         ('SAVINGS', 'Savings'),
         ('CURRENT', 'Current'),
-        ('SALARY', 'Salary'),
-    )
+    ]
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -116,7 +120,6 @@ class Employee(models.Model):
 
     joining_date = models.DateField(null=True, blank=True, db_index=True)
 
-
     # Profile Image Field
     profile_image = models.ImageField(
         upload_to='employee_images/',
@@ -124,13 +127,6 @@ class Employee(models.Model):
         null=True,
         default=None
     )
-    employee_id = models.CharField(max_length=20, unique=True, blank=True, editable=False)
-    department = models.CharField(max_length=100, default='')
-    designation = models.CharField(max_length=100, default='')
-    joining_date = models.DateField(null=True, blank=True)
-
-    # Profile Image
-    profile_image = models.ImageField(upload_to='employee_images/', blank=True, null=True, default=None)
 
     # Emergency contact fields
     emergency_contact_name = models.CharField(max_length=100, blank=True, null=True)
@@ -181,6 +177,12 @@ class Employee(models.Model):
                 last_number = 1
             self.employee_id = f'EMPEX{year:02d}{last_number:03d}'
         super().save(*args, **kwargs)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['department'], name='hrms_emp_dept_idx'),
+            models.Index(fields=['department', 'designation'], name='hrms_emp_dept_desig_idx'),
+        ]
 
 # ===== LEAVE TYPE MODEL (NEW) =====
 class LeaveType(models.Model):
@@ -245,51 +247,6 @@ class LeaveBalance(models.Model):
     
     def __str__(self):
         return f"{self.employee.get_full_name()} - {self.leave_type} - {self.year}"
-
-
-# ===== SALARY MODEL =====
-class Salary(models.Model):
-    employee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='salaries')
-    
-    # Basic Salary Details
-    basic_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    house_rent_allowance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    conveyance_allowance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    medical_allowance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    special_allowance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    # Deductions
-    provident_fund = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    professional_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    income_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    # Additional
-    bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    overtime = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    leave_deduction = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    # Month and Year
-    month = models.IntegerField(db_index=True)  # 1-12
-    year = models.IntegerField(db_index=True)
-    
-    # Payment Status
-    status = models.CharField(max_length=20, choices=[('PENDING', 'Pending'), ('PAID', 'Paid')], default='PENDING', db_index=True)
-    payment_date = models.DateField(null=True, blank=True)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"{self.employee.username} - {self.month}/{self.year}"
-    
-    def get_gross_salary(self):
-        return self.basic_salary + self.house_rent_allowance + self.conveyance_allowance + self.medical_allowance + self.special_allowance + self.bonus + self.overtime
-    
-    def get_total_deductions(self):
-        return self.provident_fund + self.professional_tax + self.income_tax + self.leave_deduction
-    
-    def get_net_salary(self):
-        return self.get_gross_salary() - self.get_total_deductions()
 
 
 # ===== LEAVE MODEL (UPDATED) =====
@@ -357,6 +314,12 @@ class Leave(models.Model):
     def __str__(self):
         return f"{self.employee.username} - {self.leave_type} ({self.status})"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['employee', 'status'], name='hrms_leave_emp_status_idx'),
+            models.Index(fields=['status', 'applied_at'], name='hrms_leave_status_applied_idx'),
+        ]
+
     @staticmethod
     def calculate_working_days(start_date, end_date):
         from datetime import timedelta
@@ -384,6 +347,41 @@ class Leave(models.Model):
     def leave_days(self):
         return self.calculate_working_days(self.start_date, self.end_date)
 
+class ChatSession(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='chat_sessions'
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Chat session for {self.user.username} ({self.started_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class ChatMessage(models.Model):
+    SENDER_CHOICES = (
+        ('USER', 'User'),
+        ('ASSISTANT', 'Assistant'),
+    )
+
+    session = models.ForeignKey(
+        ChatSession,
+        on_delete=models.CASCADE,
+        related_name='messages'
+    )
+    sender = models.CharField(max_length=20, choices=SENDER_CHOICES, db_index=True)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.sender} message at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 # ===== HOLIDAY MODEL =====
 class Holiday(models.Model):

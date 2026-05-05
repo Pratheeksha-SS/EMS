@@ -26,10 +26,10 @@ const getSummaryCards = (reportType, summary) => {
   switch (reportType) {
     case 'attendance':
       return [
-        { label: 'Total Employees', value: summary.total_employees ?? 0,  sub: 'In selected period',   icon: '👥', gradient: 'linear-gradient(135deg, #F97316, #EA580C)', shadow: 'rgba(249,115,22,0.25)' },
-        { label: 'Present',         value: summary.present ?? 0,          sub: 'Marked present',       icon: '✅', gradient: 'linear-gradient(135deg, #16A34A, #15803D)', shadow: 'rgba(22,163,74,0.25)' },
-        { label: 'Absent',          value: summary.absent ?? 0,           sub: 'Not marked in',        icon: '❌', gradient: 'linear-gradient(135deg, #DC2626, #B91C1C)', shadow: 'rgba(220,38,38,0.25)' },
-        { label: 'On Leave',        value: summary.on_leave ?? 0,         sub: 'Approved leave',       icon: '🏖️', gradient: 'linear-gradient(135deg, #F59E0B, #D97706)', shadow: 'rgba(245,158,11,0.25)' },
+        { label: 'Total Employees', value: summary.total_employees ?? 0,  sub: 'In selected period', gradient: 'linear-gradient(135deg, #F97316, #EA580C)', shadow: 'rgba(249,115,22,0.25)' },
+        { label: 'Present',         value: summary.present ?? 0,          sub: 'Marked present', gradient: 'linear-gradient(135deg, #16A34A, #15803D)', shadow: 'rgba(22,163,74,0.25)' },
+        { label: 'Absent',          value: summary.absent ?? 0,           sub: 'Not marked in', gradient: 'linear-gradient(135deg, #DC2626, #B91C1C)', shadow: 'rgba(220,38,38,0.25)' },
+        { label: 'On Leave',        value: summary.on_leave ?? 0,         sub: 'Approved leave', gradient: 'linear-gradient(135deg, #F59E0B, #D97706)', shadow: 'rgba(245,158,11,0.25)' },
       ];
     case 'leave':
       return [
@@ -44,13 +44,6 @@ const getSummaryCards = (reportType, summary) => {
         { label: 'Active',          value: summary.active_employees ?? 0, sub: 'Currently active',     icon: '🟢', gradient: 'linear-gradient(135deg, #16A34A, #15803D)', shadow: 'rgba(22,163,74,0.25)' },
         { label: 'New Joins',       value: summary.new_joins ?? 0,       sub: 'Recent joiners',        icon: '🆕', gradient: 'linear-gradient(135deg, #2563EB, #1D4ED8)', shadow: 'rgba(37,99,235,0.25)' },
         { label: 'Top Performers',  value: summary.excellent_performers ?? 0, sub: 'Excellent rating', icon: '⭐', gradient: 'linear-gradient(135deg, #F59E0B, #D97706)', shadow: 'rgba(245,158,11,0.25)' },
-      ];
-    case 'salary':
-      return [
-        { label: 'Employees',       value: summary.total_employees ?? 0, sub: 'In payroll',            icon: '👥', gradient: 'linear-gradient(135deg, #F97316, #EA580C)', shadow: 'rgba(249,115,22,0.25)' },
-        { label: 'Total Net Pay',   value: summary.total_net_salary ? `₹${Number(summary.total_net_salary).toLocaleString()}` : '₹0', sub: 'Total disbursed', icon: '💰', gradient: 'linear-gradient(135deg, #16A34A, #15803D)', shadow: 'rgba(22,163,74,0.25)' },
-        { label: 'Avg Net Salary',  value: summary.average_net_salary ? `₹${Number(summary.average_net_salary).toLocaleString()}` : '₹0', sub: 'Per employee', icon: '📊', gradient: 'linear-gradient(135deg, #2563EB, #1D4ED8)', shadow: 'rgba(37,99,235,0.25)' },
-        { label: 'Paid Salaries',   value: summary.paid_salaries ?? 0,  sub: 'Payment processed',     icon: '✅', gradient: 'linear-gradient(135deg, #F59E0B, #D97706)', shadow: 'rgba(245,158,11,0.25)' },
       ];
     default:
       return [];
@@ -333,7 +326,6 @@ const HRReports = ({ user, isManager = false }) => {
         attendance: '/reports/attendance/',
         leave:      '/reports/leaves/',
         employee:   '/reports/employees/',
-        salary:     '/reports/salary/',
       };
       const endpoint = endpointMap[filters.reportType];
       if (!endpoint) return;
@@ -389,14 +381,13 @@ const HRReports = ({ user, isManager = false }) => {
   const summaryCards   = getSummaryCards(filters.reportType, summary);
   const dateLabel      = getDateLabel(dateMode, filters);
   const isRangeAttend  = dateMode === 'range' && filters.reportType === 'attendance';
-  const isTableReport  = ['employee', 'salary'].includes(filters.reportType) ||
+  const isTableReport  = ['employee'].includes(filters.reportType) ||
                          (dateMode === 'single' && filters.reportType !== 'employee');
 
   const reportTitleMap = {
     attendance: '📅 Attendance Report',
     leave:      '📝 Leave Report',
     employee:   '👥 Employee Activity',
-    salary:     '💰 Salary Report',
   };
 
   return (
@@ -582,7 +573,7 @@ const HRReports = ({ user, isManager = false }) => {
           ))
         )
       ) : (
-        /* Single day / salary / employee: standard table */
+        /* Single day / employee: standard table */
         <ReportTable
           data={reportData}
           reportType={filters.reportType}

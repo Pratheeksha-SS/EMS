@@ -8,7 +8,6 @@ from .models import (
     Holiday,
     HolidayNotification,
     Meeting,
-    Salary,
     Announcement,
 )
 
@@ -313,26 +312,6 @@ class MeetingAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'created_by'
         )
-
-
-# ===== SALARY ADMIN =====
-@admin.register(Salary)
-class SalaryAdmin(admin.ModelAdmin):
-    list_display = [
-        'employee',
-        'month',
-        'year',
-        'basic_salary',
-        'get_net_salary',
-        'status']
-    list_filter = ['status', 'year', 'month']
-    search_fields = ['employee__username', 'employee__email']
-
-    def get_net_salary(self, obj):
-        return obj.get_net_salary()
-
-    get_net_salary.short_description = 'Net Salary'
-    get_net_salary.admin_order_field = 'basic_salary'
 
 
 # ===== ANNOUNCEMENT ADMIN =====

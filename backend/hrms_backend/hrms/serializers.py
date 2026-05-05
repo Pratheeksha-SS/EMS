@@ -6,7 +6,6 @@ from .models import (
     HolidayNotification,
     Meeting,
     Announcement,
-    Salary,
     Visitor,
     InternDetail,
     InternAttendance,
@@ -14,6 +13,8 @@ from .models import (
     GuestVisit,
     VisitorLog,
     DepartmentVisitStats,
+    ChatSession,
+    ChatMessage,
 )
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
@@ -114,6 +115,37 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data.pop('user', None)
         return super().update(instance, validated_data)
+
+
+class EmployeeListItemSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    profile_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Employee
+        fields = [
+            'id', 'employee_id', 'first_name', 'middle_name', 'last_name',
+            'full_name', 'username', 'role', 'email', 'phone', 'department',
+            'designation', 'joining_date', 'profile_image_url',
+            'emergency_contact_name', 'emergency_contact_relationship',
+            'emergency_contact_phone', 'emergency_contact_occupation',
+        ]
+
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+
+    def get_username(self, obj):
+        return obj.user.username if obj.user else None
+
+    def get_role(self, obj):
+        return obj.user.role if obj.user else None
+
+    def get_profile_image_url(self, obj):
+        if obj.profile_image and hasattr(obj.profile_image, 'url'):
+            return obj.profile_image.url
+        return None
 
 
 # ===== EMPLOYEE CREATE SERIALIZER =====
@@ -310,6 +342,23 @@ class HolidayNotificationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['sent_at', 'sent_by', 'recipient_count']
 
+class ChatMessageSerializer(serializers.ModelSerializer):
+    """Serializer for chatbot messages."""
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'sender', 'content', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class ChatSessionSerializer(serializers.ModelSerializer):
+    """Serializer for chatbot sessions with message history."""
+    messages = ChatMessageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatSession
+        fields = ['id', 'started_at', 'updated_at', 'active', 'messages']
+        read_only_fields = ['id', 'started_at', 'updated_at', 'messages']
 
 class HolidayBulkCreateSerializer(serializers.Serializer):
     """
@@ -478,43 +527,6 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = ['id', 'type', 'title', 'message', 'is_read', 'created_at']
         read_only_fields = ['id', 'created_at']
 
-
-# ===== SALARY SERIALIZER =====
-class SalarySerializer(serializers.ModelSerializer):
-    employee_name = serializers.SerializerMethodField()
-    gross_salary = serializers.SerializerMethodField()
-    total_deductions = serializers.SerializerMethodField()
-    net_salary = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Salary
-        fields = [
-            'id', 'employee', 'employee_name', 'basic_salary', 'house_rent_allowance',
-            'conveyance_allowance', 'medical_allowance', 'special_allowance',
-            'provident_fund', 'professional_tax', 'income_tax', 'bonus', 'overtime',
-            'leave_deduction', 'month', 'year', 'status', 'payment_date',
-            'gross_salary', 'total_deductions', 'net_salary', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'status', 'payment_date']
-
-    def get_employee_name(self, obj):
-        # Use select_related prefetched data instead of new query
-        try:
-            if hasattr(obj.employee, 'employee_profile'):
-                emp = obj.employee.employee_profile
-                return emp.get_full_name() if hasattr(emp, 'get_full_name') else f"{emp.first_name or ''} {emp.last_name or ''}".strip()
-            return str(obj.employee)
-        except Exception:
-            return str(obj.employee)
-
-    def get_gross_salary(self, obj):
-        return obj.get_gross_salary()
-
-    def get_total_deductions(self, obj):
-        return obj.get_total_deductions()
-
-    def get_net_salary(self, obj):
-        return obj.get_net_salary()
 
 # ===== VISITOR SERIALIZERS =====
 class VisitorSerializer(serializers.ModelSerializer):
